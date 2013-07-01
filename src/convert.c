@@ -46,6 +46,7 @@ as that of the covered work.  */
 #include "html-url.h"
 #include "css-url.h"
 #include "iri.h"
+#include "extension.h"
 
 static struct hash_table *dl_file_url_map;
 struct hash_table *dl_url_file_map;
@@ -833,6 +834,8 @@ register_download (const char *url, const char *file)
     }
 
   hash_table_put (dl_url_file_map, xstrdup (url), xstrdup (file));
+
+  extension_fire_event(WGET_EVENT_FINISH_DOWNLOAD, url, file);
 }
 
 /* Register that FROM has been redirected to TO.  This assumes that TO

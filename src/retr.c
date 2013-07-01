@@ -53,6 +53,7 @@ as that of the covered work.  */
 #include "ptimer.h"
 #include "html-url.h"
 #include "iri.h"
+#include "extension.h"
 
 /* Total size of downloaded files.  Used to enforce quota.  */
 SUM_SIZE_INT total_downloaded_bytes;
@@ -775,6 +776,8 @@ retrieve_url (struct url * orig_parsed, const char *origurl, char **file,
           goto bail;
         }
     }
+
+  extension_fire_event(WGET_EVENT_PREPARE_DOWNLOAD, url, NULL);
 
   if (u->scheme == SCHEME_HTTP
 #ifdef HAVE_SSL
