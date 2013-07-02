@@ -1,0 +1,11 @@
+#!/bin/sh
+
+DB="spider.sqlite"
+SQL="CREATE TABLE IF NOT EXISTS email(id INTEGER PRIMARY KEY NOT NULL, email TEXT NOT NULL, url TEXT NOT NULL, UNIQUE(email, url) ON CONFLICT IGNORE)"
+
+if [ -e $DB ]; then
+    rm -f $DB
+fi
+
+touch $DB
+eval sqlite3 $DB \"$SQL\"

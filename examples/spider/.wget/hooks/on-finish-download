@@ -1,0 +1,17 @@
+#!/bin/sh
+
+DB="spider.sqlite"
+
+URL="$1"
+FILE="$2"
+
+REGEX_EMAIL='((?<!u\d{,4})[a-zA-Z][0-9a-zA-Z]+@[a-zA-Z]+(\.[a-zA-Z]+)+)'
+
+insert_email()
+{
+    local sql="insert into email(email,url) values('$1','$2')"
+
+    eval sqlite3 $DB \"$sql\"
+}
+
+eval grep -roI -P \"$REGEX_EMAIL\" $FILE | while read email url; do insert_email $email `echo $FILE | awk -F/ '{print $1}'`; done
