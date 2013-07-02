@@ -11,6 +11,6 @@ enum {
 
 int extension_init();
 
-int extension_fire_event(int, const char *, const char *);
+int extension_fire_event(int evt, ...);
 
 #endif /* EXTENSION_H */

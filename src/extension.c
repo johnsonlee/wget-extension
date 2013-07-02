@@ -2,6 +2,7 @@
 
 #include <assert.h>
 #include <errno.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -31,62 +32,63 @@ struct extension_event_registry {
     extension_event_handler_t handler;
 };
 
-static int extension_execute(int argc, const char *argv[])
+static int extension_execute(const char *argv[])
 {
     struct stat buf;
-    const char *envp[] = { NULL };
-
-    logprintf(LOG_VERBOSE, "Trigger hook `%s' %s %s\n", argv[0], argv[1], argv[2]);
 
     if (stat(argv[0], &buf)) {
-        if (ENOENT == errno)
+        if (ENOENT == errno) {
+            logprintf(LOG_VERBOSE, "Wget extension hook `%s' not found\n", argv[0]);
             return 0;
+        }
 
-        fprintf(stderr, "Access `%s' failed: %s\n", argv[0], strerror(errno));
+        logprintf(LOG_VERBOSE, "Access `%s' failed: %s\n", argv[0], strerror(errno));
         return -1;
     }
 
     if (!S_ISREG(buf.st_mode)) {
-        fprintf(stderr, "%s isn't a file\n", argv[0]);
+        logprintf(LOG_VERBOSE, "%s isn't a file\n", argv[0]);
         return 0;
     }
 
-    return execve(argv[0], argv, envp);
+    logprintf(LOG_VERBOSE, "Trigger hook %s\n", argv[0]);
+
+    return execve(argv[0], argv, environ);
 }
 
-static __attribute__((constructor)) extension_fire_start_event()
+static void extension_fire_start_event(void)
 {
-    const char *argv[] = { WGET_EXTENSION_START_HOOK };
+    const char *argv[] = { WGET_EXTENSION_START_HOOK, NULL };
  
-    (void) extension_execute(sizeof(argv) / sizeof(argv[0]), argv);
+    (void) extension_execute(argv);
 }
 
 static int extension_fire_prepare_download(const char *url, const char *file)
 {
-    const char *argv[] = { WGET_EXTENSION_PREPARE_DOWNLOAD_HOOK, url, file };
+    const char *argv[] = { WGET_EXTENSION_PREPARE_DOWNLOAD_HOOK, url, file, NULL };
 
-    return extension_execute(sizeof(argv) / sizeof(argv[0]), argv);
+    return extension_execute(argv);
 }
 
 static int extension_fire_start_download(const char *url, const char *file)
 {
-    const char *argv[] = { WGET_EXTENSION_START_DOWNLOAD_HOOK, url, file };
+    const char *argv[] = { WGET_EXTENSION_START_DOWNLOAD_HOOK, url, file, NULL };
 
-    return extension_execute(sizeof(argv) / sizeof(argv[0]), argv);
+    return extension_execute(argv);
 }
 
 static int extension_fire_finish_download(const char *url, const char *file)
 {
-    const char *argv[] = { WGET_EXTENSION_FINISH_DOWNLOAD_HOOK, url, file };
+    const char *argv[] = { WGET_EXTENSION_FINISH_DOWNLOAD_HOOK, url, file, NULL };
 
-    return extension_execute(sizeof(argv) / sizeof(argv[0]), argv);
+    return extension_execute(argv);
 }
 
-static __attribute__((destructor)) extension_fire_exit_event()
+static void extension_fire_exit_event(void)
 {
-    const char *argv[] = { WGET_EXTENSION_EXIT_HOOK };
+    const char *argv[] = { WGET_EXTENSION_EXIT_HOOK, NULL };
 
-    (void) extension_execute(sizeof(argv) / sizeof(argv[0]), argv);
+    (void) extension_execute(argv);
 }
 
 int extension_init()
@@ -95,45 +97,60 @@ int extension_init()
     return 0;
 }
 
-int extension_fire_event(int evt, const char *url, const char *file)
+int extension_fire_event(int evt, ...)
 {
     assert(evt >= WGET_EVENT_START && evt <= WGET_EVENT_EXIT);
 
     int status;
+    char *url;
+    char *file;
     pid_t pid;
     struct stat buf;
+    va_list ap;
 
     if (stat(WGET_EXTENSION_DIR, &buf)) {
-        if (ENOENT == errno)
+        if (ENOENT == errno) {
+            logprintf(LOG_VERBOSE, "Wget extension not found\n");
             return 0;
+        }
 
-        fprintf(stderr, "Access %s failed\n", WGET_EXTENSION_DIR);
+        logprintf(LOG_VERBOSE, "Access %s failed\n", WGET_EXTENSION_DIR);
         return -1;
     }
 
     if (!S_ISDIR(buf.st_mode)) {
-        fprintf(stderr, "%s isn't a directory\n", WGET_EXTENSION_DIR);
+        logprintf(LOG_VERBOSE, "%s isn't a directory\n", WGET_EXTENSION_DIR);
         return 0;
     }
 
     switch (pid = fork()) {
     case -1:
-        perror("Unable to create child process");
+        logprintf(LOG_VERBOSE, "Unable to create child process");
         return -1;
     case 0:
-        logprintf(LOG_VERBOSE, "Fire event %d\n", evt);
-
         switch (evt) {
         case WGET_EVENT_START:
             extension_fire_start_event();
             break;
         case WGET_EVENT_PREPARE_DOWNLOAD:
+            va_start(ap, evt);
+            url = va_arg(ap, char*);
+            file = va_arg(ap, char*);
+            va_end(ap);
             _exit(extension_fire_prepare_download(url, file));
             break;
         case WGET_EVENT_START_DOWNLOAD:
+            va_start(ap, evt);
+            url = va_arg(ap, char*);
+            file = va_arg(ap, char*);
+            va_end(ap);
             _exit(extension_fire_start_download(url, file));
             break;
         case WGET_EVENT_FINISH_DOWNLOAD:
+            va_start(ap, evt);
+            url = va_arg(ap, char*);
+            file = va_arg(ap, char*);
+            va_end(ap);
             _exit(extension_fire_finish_download(url, file));
             break;
         case WGET_EVENT_EXIT:
@@ -145,7 +162,7 @@ int extension_fire_event(int evt, const char *url, const char *file)
         _exit(0);
     default:
         if (-1 == waitpid(pid, &status, 0)) {
-            perror("Fetal error");
+            logprintf(LOG_VERBOSE, "Fetal error");
             abort();
         }
 

@@ -56,6 +56,7 @@ as that of the covered work.  */
 #include "http.h"               /* for save_cookies */
 #include "ptimer.h"
 #include "warc.h"
+#include "extension.h"
 #include <getopt.h>
 #include <getpass.h>
 #include <quote.h>
@@ -1517,6 +1518,8 @@ outputting to a regular file.\n"));
   signal (SIGWINCH, progress_handle_sigwinch);
 #endif
 
+  extension_fire_event(WGET_EVENT_START);
+
   /* Retrieve the URLs from argument list.  */
   for (t = url; *t; t++)
     {
@@ -1628,6 +1631,7 @@ outputting to a regular file.\n"));
 
   cleanup ();
 
+  extension_fire_event(WGET_EVENT_EXIT);
   exit (get_exit_status ());
 }
 #endif /* TESTING */
