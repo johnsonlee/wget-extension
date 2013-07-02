@@ -1,0 +1,39 @@
+                                                          -*- text -*-
+GNU Wget Extension
+==================
+
+GNU Wget Extension is an external hook which could be written by any
+scripts, such as SHELL, Python, etc.
+
+
+Hooks
+-----
+
+* on-start
+
+* on-prepare-download
+
+* on-finish-download
+
+* on-exit
+
+
+Extension Directory Structure
+-----------------------------
+
+The directory structure of GNU Wget Extension looks like this:
+
+.wget
+└── hooks
+    ├── on-start
+    ├── on-prepare-download
+    ├── on-finish-download
+    └── on-exit
+
+
+Usage
+-----
+
+As long as there is an extension directory structure under current
+path, the hooks will be execute.
+ 
