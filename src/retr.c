@@ -777,7 +777,20 @@ retrieve_url (struct url * orig_parsed, const char *origurl, char **file,
         }
     }
 
-  extension_fire_event(WGET_EVENT_PREPARE_DOWNLOAD, url, NULL);
+  /* Ignore downloading while on-prepare-download hook exit abnormally.
+   */
+  if (extension_fire_event(WGET_EVENT_PREPARE_DOWNLOAD, url, NULL))
+    {
+      if (proxy_url)
+        {
+          url_free (proxy_url);
+          proxy_url = NULL;
+        }
+
+      xfree (url);
+      RESTORE_POST_DATA;
+      goto bail;
+    }
 
   if (u->scheme == SCHEME_HTTP
 #ifdef HAVE_SSL
